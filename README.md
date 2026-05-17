@@ -217,7 +217,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ## 📬 Contact
 
 **MineGuardian Team**
-- 📧 Email: hello@mineguardian.io
+- 📧 Email: 24aditya.sh@gmail.com
 - 🌐 Website: [www.mineguardian.io](https://www.mineguardian.io)
 - 🐦 Twitter: [@MineGuardianApp](https://twitter.com/MineGuardianApp)
 
