@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MineGuardian — AI Safety Companion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/feather-icons"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --amber: #F59E0B;
+      --amber-dark: #B45309;
+      --amber-glow: rgba(245,158,11,0.15);
+      --bg: #0D0F12;
+      --surface: #13171C;
+      --surface2: #1A2028;
+      --border: rgba(255,255,255,0.07);
+      --text: #E8EAF0;
+      --muted: #6B7280;
+      --danger: #EF4444;
+      --success: #10B981;
+      --info: #3B82F6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      min-height: 100vh;
+    }
+    h1, h2, h3, h4, .display { font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.02em; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--amber-dark); border-radius: 2px; }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0; width: 68px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 0; gap: 6px; z-index: 100;
+      transition: width 0.3s ease;
+    }
+    .sidebar:hover { width: 200px; }
+    .sidebar:hover .nav-label { opacity: 1; width: auto; }
+    .sidebar:hover .logo-text { opacity: 1; }
+    .logo-area { display: flex; align-items: center; gap: 10px; padding: 0 16px; margin-bottom: 20px; width: 100%; }
+    .logo-icon { width: 36px; height: 36px; background: var(--amber); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .logo-text { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); white-space: nowrap; opacity: 0; transition: opacity 0.2s; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      width: calc(100% - 16px); padding: 10px 16px; border-radius: 8px;
+      cursor: pointer; transition: all 0.2s; color: var(--muted);
+      position: relative;
+    }
+    .nav-item:hover, .nav-item.active { background: var(--amber-glow); color: var(--amber); }
+    .nav-item svg { flex-shrink: 0; width: 20px; height: 20px; }
+    .nav-label { font-size: 14px; font-weight: 500; white-space: nowrap; opacity: 0; width: 0; overflow: hidden; transition: opacity 0.2s; }
+    .nav-badge {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: var(--danger); color: white; font-size: 10px;
+      border-radius: 10px; padding: 1px 6px; font-weight: 600;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .sidebar:hover .nav-badge { opacity: 1; }
+
+    /* Main */
+    .main { margin-left: 68px; padding: 24px; min-height: 100vh; }
+
+    /* Top bar */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .page-title { font-size: 28px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+    .page-title span { color: var(--amber); }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .alert-bell {
+      position: relative; width: 40px; height: 40px; border-radius: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      color: var(--muted); transition: all 0.2s;
+    }
+    .alert-bell:hover { border-color: var(--amber); color: var(--amber); }
+    .alert-dot {
+      position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
+      background: var(--danger); border-radius: 50%; border: 2px solid var(--bg);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(1.3)} }
+    .user-chip {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 6px 14px; cursor: pointer;
+    }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--amber), var(--amber-dark));
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; color: #000;
+    }
+    .user-info { line-height: 1.2; }
+    .user-name { font-size: 13px; font-weight: 600; }
+    .user-role { font-size: 11px; color: var(--amber); font-weight: 500; }
+
+    /* Status bar */
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px; padding: 10px 16px; margin-bottom: 24px;
+      animation: fadeIn 0.5s ease;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); animation: pulse 1.5s infinite; flex-shrink:0; }
+    .status-text { font-size: 13px; font-weight: 500; color: #FCA5A5; }
+    .status-time { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+    /* Cards */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px; transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(245,158,11,0.3); }
+    .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+
+    /* Stat cards */
+    .stat-value { font-family: 'Barlow Condensed', sans-serif; font-size: 42px; font-weight: 800; line-height: 1; }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-change { font-size: 12px; font-weight: 600; margin-top: 6px; }
+    .up { color: var(--success); }
+    .down { color: var(--danger); }
+
+    /* Sensor grid */
+    .sensor-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; position: relative; overflow: hidden;
+    }
+    .sensor-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .sensor-card.ok::before { background: var(--success); }
+    .sensor-card.warn::before { background: var(--amber); }
+    .sensor-card.danger::before { background: var(--danger); }
+    .sensor-value { font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 700; }
+    .sensor-unit { font-size: 13px; color: var(--muted); }
+    .sensor-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .sensor-status {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-top: 8px;
+    }
+    .sensor-status.ok { background: rgba(16,185,129,0.15); color: var(--success); }
+    .sensor-status.warn { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .sensor-status.danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+    /* Alert list */
+    .alert-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .alert-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .alert-icon {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .alert-icon.high { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .alert-icon.med { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .alert-icon.low { background: rgba(59,130,246,0.15); color: var(--info); }
+    .alert-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .alert-desc { font-size: 12px; color: var(--muted); }
+    .alert-time { font-size: 11px; color: var(--muted); margin-left: auto; flex-shrink: 0; padding-top: 2px; }
+
+    /* Training videos */
+    .video-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.2s;
+    }
+    .video-card:hover { border-color: var(--amber); transform: translateY(-2px); }
+    .video-thumb {
+      height: 100px; display: flex; align-items: center; justify-content: center;
+      position: relative; font-size: 32px;
+    }
+    .video-play {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(245,158,11,0.9); display: flex; align-items: center; justify-content: center;
+      color: #000; position: absolute;
+    }
+    .video-info { padding: 12px; }
+    .video-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
+    .video-meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; }
+    .video-badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; text-transform: uppercase;
+    }
+    .badge-new { background: rgba(245,158,11,0.2); color: var(--amber); }
+    .badge-req { background: rgba(239,68,68,0.2); color: var(--danger); }
+    .badge-done { background: rgba(16,185,129,0.2); color: var(--success); }
+
+    /* Hazard report form */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+    .form-input, .form-select, .form-textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; color: var(--text); font-family: 'Barlow', sans-serif;
+      font-size: 14px; transition: border-color 0.2s; outline: none;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--amber); }
+    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-select option { background: var(--surface2); }
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 10px; padding: 24px;
+      text-align: center; cursor: pointer; transition: all 0.2s; color: var(--muted);
+    }
+    .upload-zone:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-glow); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 8px; font-family: 'Barlow Condensed', sans-serif;
+      font-size: 15px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.2s; border: none; outline: none;
+    }
+    .btn-primary { background: var(--amber); color: #000; }
+    .btn-primary:hover { background: #FCD34D; transform: translateY(-1px); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--amber); color: var(--amber); }
+    .btn-danger { background: rgba(239,68,68,0.2); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+    .btn-danger:hover { background: rgba(239,68,68,0.3); }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+
+    /* Progress bar */
+    .progress-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--amber-dark), var(--amber)); transition: width 1s ease; }
+
+    /* Risk meter */
+    .risk-meter {
+      width: 120px; height: 60px; position: relative; overflow: hidden;
+    }
+    .risk-arc {
+      width: 120px; height: 120px; border-radius: 50%;
+      border: 12px solid var(--surface2); border-bottom-color: transparent;
+      border-right-color: transparent; transform: rotate(-45deg);
+      position: absolute; top: 0;
+    }
+    .risk-arc-fill {
+      width: 120px; height: 120px; border-radius: 50%;
+      border: 12px solid transparent; border-bottom-color: transparent;
+      border-right-color: transparent; position: absolute; top: 0; transform: rotate(-45deg);
+    }
+
+    /* Checklist */
+    .check-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer;
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-box {
+      width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;
+    }
+    .check-box.checked { background: var(--success); border-color: var(--success); }
+    .check-text { font-size: 14px; }
+    .check-text.done { text-decoration: line-through; color: var(--muted); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+    .tab { padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; white-space: nowrap; }
+    .tab.active { background: var(--surface); color: var(--amber); }
+
+    /* Section */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .section-action { font-size: 12px; color: var(--amber); cursor: pointer; font-weight: 600; }
+
+    /* Grid layouts */
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .grid-main { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+
+    @media (max-width: 1100px) { .grid-4{grid-template-columns:repeat(2,1fr);} .grid-main{grid-template-columns:1fr;} }
+    @media (max-width: 700px) { .grid-4{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;} .grid-2{grid-template-columns:1fr;} .main{margin-left:0;padding:16px;} .sidebar{display:none;} }
+
+    /* Animations */
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+    .fade-in-1 { animation: fadeIn 0.4s 0.05s ease both; }
+    .fade-in-2 { animation: fadeIn 0.4s 0.1s ease both; }
+    .fade-in-3 { animation: fadeIn 0.4s 0.15s ease both; }
+    .fade-in-4 { animation: fadeIn 0.4s 0.2s ease both; }
+
+    /* Page sections */
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.3s ease; }
+
+    /* Voice button */
+    .voice-btn {
+      width: 56px; height: 56px; border-radius: 50%; background: var(--danger);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      box-shadow: 0 0 0 0 rgba(239,68,68,0.4); transition: all 0.2s;
+      border: none; color: white;
+    }
+    .voice-btn.listening { animation: voicePulse 1s infinite; }
+    @keyframes voicePulse { 0%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)} 70%{box-shadow:0 0 0 16px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+
+    /* Tip of the day */
+    .tip-card {
+      background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(180,83,9,0.1));
+      border: 1px solid rgba(245,158,11,0.3); border-radius: 14px; padding: 20px;
+    }
+
+    /* Map placeholder */
+    .map-placeholder {
+      background: var(--surface2); border-radius: 12px; height: 200px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 14px; border: 1px dashed var(--border);
+      flex-direction: column; gap: 8px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      background: var(--surface); border: 1px solid var(--success);
+      border-radius: 12px; padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4); animation: slideIn 0.3s ease;
+      font-size: 14px; font-weight: 500;
+    }
+    .toast.hidden { display: none; }
+    .toast-icon { color: var(--success); }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="logo-area">
+    <div class="logo-icon">
+      <svg width="20" height="20" fill="none" stroke="#000" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    </div>
+    <span class="logo-text">MineGuardian</span>
+  </div>
+
+  <div class="nav-item active" onclick="showPage('dashboard', this)">
+    <i data-feather="grid"></i>
+    <span class="nav-label">Dashboard</span>
+  </div>
+  <div class="nav-item" onclick="showPage('sensors', this)">
+    <i data-feather="activity"></i>
+    <span class="nav-label">Live Sensors</span>
+    <span class="nav-badge">2</span>
+  </div>
+  <div class="nav-item" onclick="showPage('alerts', this)">
+    <i data-feather="alert-triangle"></i>
+    <span class="nav-label">Alerts</span>
+    <span class="nav-badge">4</span>
+  </div>
+  <div class="nav-item" onclick="showPage('report', this)">
+    <i data-feather="mic"></i>
+    <span class="nav-label">Report Hazard</span>
+  </div>
+  <div class="nav-item" onclick="showPage('training', this)">
+    <i data-feather="play-circle"></i>
+    <span class="nav-label">Training</span>
+  </div>
+  <div class="nav-item" onclick="showPage('checklist', this)">
+    <i data-feather="check-square"></i>
+    <span class="nav-label">Safety Check</span>
+  </div>
+  <div class="nav-item" onclick="showPage('tips', this)" style="margin-top:auto">
+    <i data-feather="zap"></i>
+    <span class="nav-label">AI Tips</span>
+  </div>
+  <div class="nav-item" onclick="showPage('profile', this)">
+    <i data-feather="user"></i>
+    <span class="nav-label">Profile</span>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="page-title">SAFETY <span>DASHBOARD</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="page-sub">Zone B · Block 4 · Shift 2 · Live monitoring active</div>
+    </div>
+    <div class="topbar-right">
+      <div class="alert-bell" title="Alerts">
+        <i data-feather="bell" style="width:18px;height:18px;"></i>
+        <div class="alert-dot"></div>
+      </div>
+      <div class="user-chip">
+        <div class="user-avatar">RK</div>
+        <div class="user-info">
+          <div class="user-name">Rajesh Kumar</div>
+          <div class="user-role">Senior Miner · Level 3</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE ALERT BAR -->
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span class="status-text">⚠️ HIGH ALERT: Methane levels elevated in Shaft C-2 — Evacuation protocol initiated</span>
+    <span class="status-time">2 min ago</span>
+  </div>
+
+  <!-- ===================== DASHBOARD PAGE ===================== -->
+  <div class="page active" id="page-dashboard">
+
+    <!-- Stat cards -->
+    <div class="grid-4" style="margin-bottom:20px;">
+      <div class="card fade-in-1">
+        <div class="card-title">Safety Score</div>
+        <div class="stat-value" style="color:var(--success)">94<span style="font-size:20px;color:var(--muted)">%</span></div>
+        <div class="stat-change up">↑ +3% this week</div>
+        <div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:94%"></div></div>
+      </div>
+      <div class="card fade-in-2">
+        <div class="card-title">Active Alerts</div>
+        <div class="stat-value" style="color:var(--danger)">4</div>
+        <div class="stat-sub">2 critical · 2 moderate</div>
+        <div class="stat-change down">↑ +2 since yesterday</div>
+      </div>
+      <div class="card fade-in-3">
+        <div class="card-title">Days Without Incident</div>
+        <div class="stat-value" style="color:var(--amber)">12</div>
+        <div class="stat-sub">Site record: 47 days</div>
+        <div class="stat-change up">↑ Target: 30 days</div>
+      </div>
+      <div class="card fade-in-4">
+        <div class="card-title">Training Completion</div>
+        <div class="stat-value">78<span style="font-size:20px;color:var(--muted)">%</span></div>
+        <div class="stat-sub">14 of 18 modules done</div>
+        <div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:78%;background:linear-gradient(90deg,#3B82F6,#60A5FA)"></div></div>
+      </div>
+    </div>
+
+    <div class="grid-main">
+      <!-- LEFT -->
+      <div>
+        <!-- Sensor overview -->
+        <div class="section-header">
+          <div class="section-title">Sensor Overview</div>
+          <span class="section-action" onclick="showPage('sensors',document.querySelector('.nav-item:nth-child(3)'))">View All →</span>
+        </div>
+        <div class="grid-3" style="margin-bottom:20px;">
+          <div class="sensor-card ok">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div class="sensor-value">18.2 <span class="sensor-unit">%</span></div>
+                <div class="sensor-label">O₂ Oxygen Level</div>
+              </div>
+              <i data-feather="wind" style="color:var(--success);width:20px;height:20px;"></i>
+            </div>
+            <div class="sensor-status ok"><span>●</span> Normal</div>
+          </div>
+          <div class="sensor-card danger">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div class="sensor-value" style="color:var(--danger)">4.8 <span class="sensor-unit">%LEL</span></div>
+                <div class="sensor-label">CH₄ Methane</div>
+              </div>
+              <i data-feather="alert-triangle" style="color:var(--danger);width:20px;height:20px;"></i>
+            </div>
+            <div class="sensor-status danger"><span>●</span> Critical</div>
+          </div>
+          <div class="sensor-card warn">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div class="sensor-value" style="color:var(--amber)">31 <span class="sensor-unit">°C</span></div>
+                <div class="sensor-label">Temperature</div>
+              </div>
+              <i data-feather="thermometer" style="color:var(--amber);width:20px;height:20px;"></i>
+            </div>
+            <div class="sensor-status warn"><span>●</span> Elevated</div>
+          </div>
+        </div>
+
+        <!-- Mine map -->
+        <div class="section-header">
+          <div class="section-title">Mine Zone Map</div>
+          <span class="section-action">Live View</span>
+        </div>
+        <div class="map-placeholder" style="margin-bottom:20px;">
+          <i data-feather="map" style="width:32px;height:32px;opacity:0.3;"></i>
+          <span>Interactive mine map — Zone B, Block 4</span>
+          <span style="font-size:11px;">3 active sensors · 1 alert zone highlighted</span>
+        </div>
+
+        <!-- Recent reports -->
+        <div class="section-header">
+          <div class="section-title">Recent Hazard Reports</div>
+          <span class="section-action" onclick="showPage('report',document.querySelector('.nav-item:nth-child(5)'))">+ New Report</span>
+        </div>
+        <div class="card">
+          <div class="alert-item">
+            <div class="alert-icon high"><i data-feather="alert-octagon" style="width:16px;height:16px;"></i></div>
+            <div>
+              <div class="alert-title">Gas Leak — Shaft C-2</div>
+              <div class="alert-desc">Reported via voice by Suresh M. · Photo attached · Under investigation</div>
+            </div>
+            <div class="alert-time">09:14</div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-icon med"><i data-feather="tool" style="width:16px;height:16px;"></i></div>
+            <div>
+              <div class="alert-title">Equipment Malfunction — Conveyor B3</div>
+              <div class="alert-desc">Unusual vibration reported · Maintenance notified</div>
+            </div>
+            <div class="alert-time">08:42</div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-icon low"><i data-feather="droplet" style="width:16px;height:16px;"></i></div>
+            <div>
+              <div class="alert-title">Water Seepage — Level 3</div>
+              <div class="alert-desc">Minor seepage near east wall · Monitoring</div>
+            </div>
+            <div class="alert-time">07:55</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- AI Tip -->
+        <div class="tip-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <i data-feather="zap" style="color:var(--amber);width:16px;height:16px;"></i>
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber)">AI Safety Tip — Today</span>
+          </div>
+          <p style="font-size:14px;line-height:1.6;color:var(--text);">When methane readings exceed <strong>1.5% LEL</strong>, stop all operations immediately, activate ventilation fans, and proceed to the nearest muster point. Do not use electrical switches.</p>
+          <div style="margin-top:12px;font-size:11px;color:var(--muted);">Personalized for your role · Senior Miner · Zone B</div>
+        </div>
+
+        <!-- Today's training -->
+        <div>
+          <div class="section-header">
+            <div class="section-title">Today's Training</div>
+            <span class="section-action" onclick="showPage('training',document.querySelector('.nav-item:nth-child(6)'))">All →</span>
+          </div>
+          <div class="video-card" style="margin-bottom:10px;">
+            <div class="video-thumb" style="background:linear-gradient(135deg,#1a2028,#0d1117);">
+              🔥
+              <div class="video-play"><i data-feather="play" style="width:16px;height:16px;margin-left:2px;"></i></div>
+            </div>
+            <div class="video-info">
+              <div class="video-badge badge-req">Required Today</div>
+              <div class="video-title">Emergency Evacuation Procedure — Gas Leak</div>
+              <div class="video-meta"><span>📹 4:32</span><span>·</span><span>Safety Protocol</span></div>
+            </div>
+          </div>
+          <div class="video-card">
+            <div class="video-thumb" style="background:linear-gradient(135deg,#1a2028,#0d1117);">
+              ⛑️
+              <div class="video-play"><i data-feather="play" style="width:16px;height:16px;margin-left:2px;"></i></div>
+            </div>
+            <div class="video-info">
+              <div class="video-badge badge-new">New</div>
+              <div class="video-title">Proper PPE Usage Underground</div>
+              <div class="video-meta"><span>📹 3:15</span><span>·</span><span>Personal Safety</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div>
+          <div class="section-title" style="margin-bottom:12px;">Quick Actions</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-danger" style="width:100%;justify-content:center;" onclick="showToast('🚨 Emergency SOS sent to supervisor!','danger')">
+              <i data-feather="alert-circle" style="width:16px;height:16px;"></i> SOS EMERGENCY
+            </button>
+            <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="showPage('report',document.querySelector('.nav-item:nth-child(5)'))">
+              <i data-feather="mic" style="width:16px;height:16px;"></i> Report Hazard
+            </button>
+            <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="showPage('checklist',document.querySelector('.nav-item:nth-child(7)'))">
+              <i data-feather="check-square" style="width:16px;height:16px;"></i> Safety Checklist
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SENSORS PAGE ===================== -->
+  <div class="page" id="page-sensors">
+    <div class="grid-4" style="margin-bottom:24px;">
+      <div class="sensor-card danger">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value" style="color:var(--danger)">4.8</div><div class="sensor-unit">% LEL</div><div class="sensor-label">Methane CH₄ · Shaft C-2</div></div>
+          <i data-feather="alert-triangle" style="color:var(--danger);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status danger">● Critical — Evacuate</div>
+      </div>
+      <div class="sensor-card ok">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value">18.2</div><div class="sensor-unit">%</div><div class="sensor-label">Oxygen O₂ · Shaft C-2</div></div>
+          <i data-feather="wind" style="color:var(--success);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status ok">● Normal</div>
+      </div>
+      <div class="sensor-card warn">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value" style="color:var(--amber)">31</div><div class="sensor-unit">°C</div><div class="sensor-label">Temperature · Block 4</div></div>
+          <i data-feather="thermometer" style="color:var(--amber);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status warn">● Elevated</div>
+      </div>
+      <div class="sensor-card ok">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value">0.8</div><div class="sensor-unit">m/s</div><div class="sensor-label">Air Velocity · Main Duct</div></div>
+          <i data-feather="navigation" style="color:var(--success);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status ok">● Normal</div>
+      </div>
+      <div class="sensor-card ok">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value">12</div><div class="sensor-unit">ppm</div><div class="sensor-label">CO Carbon Monoxide</div></div>
+          <i data-feather="cloud" style="color:var(--success);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status ok">● Safe (&lt;25ppm)</div>
+      </div>
+      <div class="sensor-card ok">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value">62</div><div class="sensor-unit">dB</div><div class="sensor-label">Noise Level · Zone B</div></div>
+          <i data-feather="volume-2" style="color:var(--success);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status ok">● Normal (&lt;85dB)</div>
+      </div>
+      <div class="sensor-card warn">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value" style="color:var(--amber)">74</div><div class="sensor-unit">%</div><div class="sensor-label">Humidity · Level 2</div></div>
+          <i data-feather="droplet" style="color:var(--amber);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status warn">● Elevated</div>
+      </div>
+      <div class="sensor-card ok">
+        <div style="display:flex;justify-content:space-between;">
+          <div><div class="sensor-value">1.2</div><div class="sensor-unit">mm/s</div><div class="sensor-label">Vibration · Shaft Wall</div></div>
+          <i data-feather="activity" style="color:var(--success);width:24px;height:24px;"></i>
+        </div>
+        <div class="sensor-status ok">● Stable</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:16px;">Sensor Health Status</div>
+      <p style="color:var(--muted);font-size:14px;">12 sensors active · 2 warnings · 1 critical · Last sync: 30 sec ago</p>
+    </div>
+  </div>
+
+  <!-- ===================== ALERTS PAGE ===================== -->
+  <div class="page" id="page-alerts">
+    <div class="tabs">
+      <div class="tab active">All (4)</div>
+      <div class="tab">Critical (2)</div>
+      <div class="tab">Moderate (2)</div>
+      <div class="tab">Resolved (11)</div>
+    </div>
+    <div class="card">
+      <div class="alert-item">
+        <div class="alert-icon high"><i data-feather="alert-octagon" style="width:18px;height:18px;"></i></div>
+        <div style="flex:1;">
+          <div class="alert-title">🔴 CRITICAL — Methane Spike in Shaft C-2</div>
+          <div class="alert-desc">Levels reached 4.8% LEL. Evacuation initiated. All personnel must leave immediately.</div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-sm btn-primary">Acknowledge</button>
+            <button class="btn btn-sm btn-ghost">View Details</button>
+          </div>
+        </div>
+        <div class="alert-time">09:14</div>
+      </div>
+      <div class="alert-item">
+        <div class="alert-icon high"><i data-feather="thermometer" style="width:18px;height:18px;"></i></div>
+        <div style="flex:1;">
+          <div class="alert-title">🔴 CRITICAL — Temperature Threshold Exceeded</div>
+          <div class="alert-desc">Block 4 temperature reached 31°C. Risk of heat stress for workers.</div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-sm btn-primary">Acknowledge</button>
+            <button class="btn btn-sm btn-ghost">View Details</button>
+          </div>
+        </div>
+        <div class="alert-time">08:55</div>
+      </div>
+      <div class="alert-item">
+        <div class="alert-icon med"><i data-feather="tool" style="width:18px;height:18px;"></i></div>
+        <div style="flex:1;">
+          <div class="alert-title">🟡 MODERATE — Equipment Vibration Anomaly</div>
+          <div class="alert-desc">Conveyor B3 showing unusual vibration pattern. Maintenance team alerted.</div>
+        </div>
+        <div class="alert-time">08:42</div>
+      </div>
+      <div class="alert-item">
+        <div class="alert-icon med"><i data-feather="droplet" style="width:18px;height:18px;"></i></div>
+        <div style="flex:1;">
+          <div class="alert-title">🟡 MODERATE — Humidity Elevated Level 2</div>
+          <div class="alert-desc">Humidity at 74% in Level 2 corridor. Slippery surface risk.</div>
+        </div>
+        <div class="alert-time">07:30</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== REPORT HAZARD PAGE ===================== -->
+  <div class="page" id="page-report">
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:20px;">🎙️ Voice Report</div>
+        <div style="text-align:center;padding:20px 0;">
+          <div style="margin-bottom:16px;color:var(--muted);font-size:14px;" id="voice-status">Press and hold to report a hazard in your language</div>
+          <button class="voice-btn" id="voice-btn" onmousedown="startVoice()" onmouseup="stopVoice()" ontouchstart="startVoice()" ontouchend="stopVoice()">
+            <i data-feather="mic" style="width:24px;height:24px;"></i>
+          </button>
+          <div style="margin-top:16px;font-size:12px;color:var(--muted);">Supported: हिंदी · English · isiZulu · Français · Español</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-top:8px;font-size:13px;color:var(--muted);min-height:60px;" id="voice-transcript">
+          Voice transcript will appear here...
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:20px;">📝 Manual Report</div>
+        <div class="form-group">
+          <label class="form-label">Hazard Type</label>
+          <select class="form-select">
+            <option>Select hazard type...</option>
+            <option>Gas / Air Quality</option>
+            <option>Structural / Roof</option>
+            <option>Equipment Failure</option>
+            <option>Fire / Heat</option>
+            <option>Flooding / Water</option>
+            <option>Electrical</option>
+            <option>Slip / Trip / Fall</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input class="form-input" type="text" placeholder="e.g. Shaft C-2, Level 3, Block 4" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" placeholder="Describe what you observed..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Severity</label>
+          <select class="form-select">
+            <option>Select severity...</option>
+            <option>🔴 Critical — Immediate action needed</option>
+            <option>🟡 Moderate — Action needed today</option>
+            <option>🟢 Low — Monitor and log</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Attach Photo / Video</label>
+          <div class="upload-zone" onclick="showToast('📷 Camera / file picker would open here')">
+            <i data-feather="camera" style="width:24px;height:24px;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;"></i>
+            <div>Tap to take photo or upload file</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="showToast('✅ Hazard report submitted successfully!')">
+          <i data-feather="send" style="width:16px;height:16px;"></i> Submit Report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TRAINING PAGE ===================== -->
+  <div class="page" id="page-training">
+    <div class="tabs">
+      <div class="tab active">All Modules</div>
+      <div class="tab">Required</div>
+      <div class="tab">Completed</div>
+      <div class="tab">DGMS Standards</div>
+    </div>
+    <div class="grid-3">
+      <div class="video-card">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#1a0a0a,#2d0f0f);font-size:36px;">🔥</div>
+        <div class="video-info">
+          <div class="video-badge badge-req">Required Today</div>
+          <div class="video-title">Emergency Evacuation — Gas Leak Protocol</div>
+          <div class="video-meta"><span>📹 4:32</span><span>·</span><span>Safety Protocol</span></div>
+        </div>
+      </div>
+      <div class="video-card">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#0a1a0a,#0f2d15);font-size:36px;">⛑️</div>
+        <div class="video-info">
+          <div class="video-badge badge-new">New</div>
+          <div class="video-title">Proper PPE Usage in Underground Environments</div>
+          <div class="video-meta"><span>📹 3:15</span><span>·</span><span>Personal Safety</span></div>
+        </div>
+      </div>
+      <div class="video-card">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#0a0f1a,#0f1a2d);font-size:36px;">🧪</div>
+        <div class="video-info">
+          <div class="video-badge badge-done">Completed</div>
+          <div class="video-title">Gas Detection Device Operation</div>
+          <div class="video-meta"><span>📹 5:10</span><span>·</span><span>Equipment</span></div>
+        </div>
+      </div>
+      <div class="video-card">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#1a1500,#2d2200);font-size:36px;">⚡</div>
+        <div class="video-info">
+          <div class="video-badge badge-new">New</div>
+          <div class="video-title">Electrical Safety in Wet Conditions</div>
+          <div class="video-meta"><span>📹 6:44</span><span>·</span><span>Electrical</span></div>
+        </div>
+      </div>
+      <div class="video-card">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#0d0a1a,#1a0f2d);font-size:36px;">🩺</div>
+        <div class="video-info">
+          <div class="video-badge badge-done">Completed</div>
+          <div class="video-title">First Aid for Mine Injuries</div>
+          <div class="video-meta"><span>📹 8:20</span><span>·</span><span>First Aid</span></div>
+        </div>
+      </div>
+      <div class="video-card">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#1a0a10,#2d0f1a);font-size:36px;">🏗️</div>
+        <div class="video-info">
+          <div class="video-badge badge-req">Required</div>
+          <div class="video-title">Roof Support and Structural Safety</div>
+          <div class="video-meta"><span>📹 7:05</span><span>·</span><span>Structural</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CHECKLIST PAGE ===================== -->
+  <div class="page" id="page-checklist">
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:4px;">Pre-Shift Safety Checklist</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Role: Senior Miner · Shift 2 · Zone B</div>
+        <div id="checklist">
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box checked"><i data-feather="check" style="width:12px;height:12px;color:white;"></i></div>
+            <span class="check-text done">Personal gas detector charged and calibrated</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box checked"><i data-feather="check" style="width:12px;height:12px;color:white;"></i></div>
+            <span class="check-text done">Hard hat, boots, and PPE worn correctly</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box checked"><i data-feather="check" style="width:12px;height:12px;color:white;"></i></div>
+            <span class="check-text done">Emergency evacuation route reviewed</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box"><i data-feather="check" style="width:12px;height:12px;color:white;display:none;"></i></div>
+            <span class="check-text">Radio / communication device tested</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box"><i data-feather="check" style="width:12px;height:12px;color:white;display:none;"></i></div>
+            <span class="check-text">Muster point location confirmed with team</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box"><i data-feather="check" style="width:12px;height:12px;color:white;display:none;"></i></div>
+            <span class="check-text">Equipment pre-start inspection completed</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box"><i data-feather="check" style="width:12px;height:12px;color:white;display:none;"></i></div>
+            <span class="check-text">Supervisor briefed on today's task</span>
+          </div>
+          <div class="check-item" onclick="toggleCheck(this)">
+            <div class="check-box"><i data-feather="check" style="width:12px;height:12px;color:white;display:none;"></i></div>
+            <span class="check-text">Water and nutrition adequate for shift</span>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" onclick="showToast('✅ Pre-shift checklist submitted!')">
+          Submit Checklist
+        </button>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="section-title" style="margin-bottom:12px;">Completion Progress</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;color:var(--amber);">3/8</div>
+          <div style="color:var(--muted);font-size:13px;margin-bottom:12px;">Items completed</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:37.5%"></div></div>
+        </div>
+        <div class="tip-card">
+          <div style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:8px;">⚡ AI Reminder</div>
+          <p style="font-size:13px;line-height:1.6;color:var(--text);">You have 5 unchecked items. Gas detector calibration and radio testing are especially critical during today's elevated methane alert.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== AI TIPS PAGE ===================== -->
+  <div class="page" id="page-tips">
+    <div style="max-width:720px;">
+      <div class="tip-card" style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">⚡ Today's Personalized Tip</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Methane Alert Response</div>
+        <p style="font-size:14px;line-height:1.7;">When methane readings exceed <strong>1.5% LEL</strong>, stop all operations. Activate ventilation fans. Proceed to the nearest muster point. Do not operate any electrical switches — even lighting. Alert your supervisor immediately via radio.</p>
+        <div style="margin-top:12px;font-size:11px;color:var(--muted);">Based on your role, current site alerts, and recent incidents nearby</div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="section-title" style="margin-bottom:16px;">ML Risk Prediction — Today</div>
+        <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(239,68,68,0.08);border-radius:10px;border:1px solid rgba(239,68,68,0.2);margin-bottom:12px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;color:var(--danger);">HIGH</div>
+          <div>
+            <div style="font-weight:600;margin-bottom:4px;">Gas Exposure Risk</div>
+            <div style="font-size:12px;color:var(--muted);">Shaft C-2 · Based on sensor trends + historical data + weather patterns</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(245,158,11,0.08);border-radius:10px;border:1px solid rgba(245,158,11,0.2);margin-bottom:12px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;color:var(--amber);">MED</div>
+          <div>
+            <div style="font-weight:600;margin-bottom:4px;">Heat Stress Risk</div>
+            <div style="font-size:12px;color:var(--muted);">Temperature trending up · Ensure hydration and rest breaks</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(16,185,129,0.08);border-radius:10px;border:1px solid rgba(16,185,129,0.2);">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;color:var(--success);">LOW</div>
+          <div>
+            <div style="font-weight:600;margin-bottom:4px;">Structural Risk</div>
+            <div style="font-size:12px;color:var(--muted);">Vibration sensors stable · Roof support inspected yesterday</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px;">Previous Tips</div>
+        <div class="alert-item">
+          <div class="alert-icon low"><i data-feather="shield" style="width:16px;height:16px;"></i></div>
+          <div><div class="alert-title">Slip & Fall Prevention</div><div class="alert-desc">Always hold handrails in wet zones. Mark slippery areas immediately.</div></div>
+          <div class="alert-time">Yesterday</div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon med"><i data-feather="ear" style="width:16px;height:16px;"></i></div>
+          <div><div class="alert-title">Noise Exposure</div><div class="alert-desc">Wear ear protection when noise exceeds 80dB. Long-term hearing damage is irreversible.</div></div>
+          <div class="alert-time">2 days ago</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PROFILE PAGE ===================== -->
+  <div class="page" id="page-profile">
+    <div class="grid-2" style="max-width:800px;">
+      <div class="card">
+        <div style="text-align:center;padding:20px 0;">
+          <div style="width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,var(--amber),var(--amber-dark));display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:#000;margin:0 auto 12px;">RK</div>
+          <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;">Rajesh Kumar</div>
+          <div style="color:var(--amber);font-size:13px;font-weight:600;margin-top:4px;">Senior Miner · Level 3</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px;">Employee ID: MG-4821 · Zone B</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--success);">94%</div>
+              <div style="font-size:11px;color:var(--muted);">Safety Score</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--amber);">78%</div>
+              <div style="font-size:11px;color:var(--muted);">Training Done</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;">12</div>
+              <div style="font-size:11px;color:var(--muted);">Reports Filed</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface2);border-radius:10px;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--info);">4.8★</div>
+              <div style="font-size:11px;color:var(--muted);">Safety Rating</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:16px;">Settings</div>
+        <div class="form-group">
+          <label class="form-label">Preferred Language</label>
+          <select class="form-select">
+            <option>English</option>
+            <option>हिंदी (Hindi)</option>
+            <option>isiZulu</option>
+            <option>Français</option>
+            <option>Español</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select class="form-select">
+            <option>Senior Miner</option>
+            <option>Junior Miner</option>
+            <option>Supervisor</option>
+            <option>Safety Officer</option>
+            <option>Engineer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notification Preference</label>
+          <select class="form-select">
+            <option>All Alerts</option>
+            <option>Critical Only</option>
+            <option>My Zone Only</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="showToast('✅ Profile settings saved!')">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast">
+  <i data-feather="check-circle" class="toast-icon" style="width:18px;height:18px;flex-shrink:0;"></i>
+  <span id="toast-msg">Action completed</span>
+</div>
+
+<script>
+  feather.replace();
+
+  const pages = {
+    dashboard: { title: 'SAFETY <span style="color:var(--amber)">DASHBOARD</span>', sub: 'Zone B · Block 4 · Shift 2 · Live monitoring active' },
+    sensors:   { title: 'LIVE <span style="color:var(--amber)">SENSORS</span>', sub: '12 sensors active · Last updated 30s ago' },
+    alerts:    { title: 'ACTIVE <span style="color:var(--amber)">ALERTS</span>', sub: '4 unresolved alerts · 2 critical' },
+    report:    { title: 'REPORT <span style="color:var(--amber)">HAZARD</span>', sub: 'Voice or manual · Auto-routed to supervisor' },
+    training:  { title: 'SAFETY <span style="color:var(--amber)">TRAINING</span>', sub: 'Daily videos · Role-based · DGMS compliant' },
+    checklist: { title: 'SAFETY <span style="color:var(--amber)">CHECKLIST</span>', sub: 'Pre-shift inspection · Shift 2 · Senior Miner' },
+    tips:      { title: 'AI SAFETY <span style="color:var(--amber)">TIPS</span>', sub: 'ML-powered · Personalized to your role and zone' },
+    profile:   { title: 'MY <span style="color:var(--amber)">PROFILE</span>', sub: 'Rajesh Kumar · Senior Miner · Employee ID MG-4821' }
+  };
+
+  function showPage(name, navEl) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    if (navEl) navEl.classList.add('active');
+    document.getElementById('page-title').innerHTML = pages[name].title;
+    document.getElementById('page-sub').textContent = pages[name].sub;
+    feather.replace();
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.remove('hidden');
+    t.style.borderColor = type === 'danger' ? 'var(--danger)' : 'var(--success)';
+    t.querySelector('.toast-icon').style.color = type === 'danger' ? 'var(--danger)' : 'var(--success)';
+    feather.replace();
+    setTimeout(() => t.classList.add('hidden'), 3000);
+  }
+
+  function toggleCheck(item) {
+    const box = item.querySelector('.check-box');
+    const text = item.querySelector('.check-text');
+    const icon = box.querySelector('svg, i');
+    if (box.classList.contains('checked')) {
+      box.classList.remove('checked');
+      text.classList.remove('done');
+      if (icon) icon.style.display = 'none';
+    } else {
+      box.classList.add('checked');
+      text.classList.add('done');
+      if (icon) icon.style.display = '';
+    }
+    feather.replace();
+  }
+
+  let voiceTimer;
+  const transcripts = [
+    "Reporting gas smell in Shaft C-2, Level 3. Strong odour near eastern wall.",
+    "Equipment making unusual noise near conveyor belt B3.",
+    "Water seepage observed on Level 2 east corridor near support pillar."
+  ];
+  function startVoice() {
+    const btn = document.getElementById('voice-btn');
+    btn.classList.add('listening');
+    document.getElementById('voice-status').textContent = '🔴 Recording... speak now';
+  }
+  function stopVoice() {
+    const btn = document.getElementById('voice-btn');
+    btn.classList.remove('listening');
+    document.getElementById('voice-status').textContent = '✅ Report captured — routing to supervisor';
+    document.getElementById('voice-transcript').textContent = transcripts[Math.floor(Math.random()*transcripts.length)];
+    document.getElementById('voice-transcript').style.color = 'var(--text)';
+    showToast('🎙️ Voice report submitted successfully!');
+  }
+
+  // Simulate live sensor updates
+  setInterval(() => {
+    const methaneEls = document.querySelectorAll('.sensor-value');
+    // subtle pulse on danger cards
+  }, 5000);
+</script>
+</body>
+</html>
